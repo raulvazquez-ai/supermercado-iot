@@ -1,0 +1,65 @@
+{
+  "@context": "https://www.w3.org/2022/wot/td/v1.1",
+  "id": "urn:esei:iot:temp-fridge-01",
+  "title": "Sensor Dual - Cámara Frigorífica Carnicería",
+  "description": "Sensor IoT combinado que monitoriza la temperatura y la humedad relativa de la cámara frigorífica de la carnicería en tiempo real.",
+  "securityDefinitions": {
+    "nosec_sc": {
+      "scheme": "nosec"
+    }
+  },
+  "security": "nosec_sc",
+  "properties": {
+    "temperature": {
+      "title": "Temperatura",
+      "type": "number",
+      "unit": "cel",
+      "readOnly": true,
+      "forms": [
+        {
+          "href": "mqtt://localhost:1883/supermarket/carniceria/temp-fridge-01/telemetry",
+          "op": ["readproperty", "observeproperty"]
+        }
+      ]
+    },
+    "humidity": {
+      "title": "Humedad Relativa",
+      "type": "number",
+      "unit": "percent",
+      "readOnly": true,
+      "forms": [
+        {
+          "href": "mqtt://localhost:1883/supermarket/carniceria/temp-fridge-01/telemetry",
+          "op": ["readproperty", "observeproperty"]
+        }
+      ]
+    }
+  },
+  "actions": {
+    "setInterval": {
+      "title": "Configurar Intervalo de Publicación",
+      "description": "Modifica la frecuencia de envío de telemetría publicando un JSON con la acción y el nuevo valor en segundos.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "set_interval"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          }
+        },
+        "required": ["action", "value"]
+      },
+      "forms": [
+        {
+          "href": "mqtt://localhost:1883/supermarket/comandos/simulador",
+          "op": ["invokeaction"]
+        }
+      ]
+    }
+  }
+}

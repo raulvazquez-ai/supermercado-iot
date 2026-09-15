@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Supermercado IoT - Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f7f6; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .alert { background: #ffcccc; color: #cc0000; padding: 10px; border-radius: 5px; margin-top: 10px; }
+        input[type="text"] { padding: 8px; width: 250px; }
+        button { padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1>Supermercado IoT - Monitorización Central</h1>
+
+    <div class="card">
+        <h3>1. Consulta REST (Histórico y Estado)</h3>
+        <p>Prueba a pedir datos sin clave, luego introduce: <b>mi-clave-secreta-2026</b></p>
+        <input type="text" id="apiKey" placeholder="Introduce el API Key (X-API-Key)">
+        <button onclick="fetchRESTData()">Consultar Estado por REST</button>
+        <pre id="restResult" style="background:#eee; padding:10px; margin-top:10px;"></pre>
+    </div>
+
+    <div class="card">
+        <h3>2. Recepción WebSockets (Tiempo Real)</h3>
+        <p>Conectado directamente a Mosquitto (Puerto 9001). Esperando alertas o nuevos datos en vivo...</p>
+        <div id="wsAlerts"></div>
+    </div>
+
+    <script>
+        // --- 1. LÓGICA REST (Petición-Respuesta) ---
+        async function fetchRESTData() {
+            const apiKey = document.getElementById("apiKey").value;
+            const resElement = document.getElementById("restResult");
+            resElement.innerHTML = "Consultando API...";
+
+            try {
+                // Hacemos la petición al endpoint de FastAPI enviando el token
+                const response = await fetch("http://localhost:5000/devices", {
+                    method: "GET",
+                    headers: { "X-API-Key": apiKey }
+                });
+
+                const data = await response.json();
+                
+                // Si el servidor nos devuelve 401 Unauthorized
+                if (response.status === 401) {
+                    resElement.innerHTML = "<span style='color:red;'>Error 401: " + data.detail + "</span>";
+                } else {
+                    resElement.innerHTML = JSON.stringify(data, null, 2);
+                }
+            } catch (err) {
+                resElement.innerHTML = "Error de red: " + err;
+            }
+        }
+
+        // --- 2. LÓGICA WEBSOCKETS (Streaming en vivo) ---
+        // Generamos un ID de cliente aleatorio para la web
+        const clientId = "web_" + Math.random().toString(16).substr(2, 8);
+        
+        // Nos conectamos al puerto 9001 de Mosquitto (configurado para WebSockets en mosquitto.conf)
+        const mqttClient = new Paho.MQTT.Client(window.location.hostname, 9001, clientId);
+
+        mqttClient.onConnectionLost = (resp) => console.log("WebSocket Desconectado: " + resp.errorMessage);
+        
+        mqttClient.onMessageArrived = (message) => {
+            const topic = message.destinationName;
+            const payload = JSON.parse(message.payloadString);
+            
+            // 1. Si es una ALERTA, la mostramos en la zona de alertas
+            if(topic.includes("alerts")) {
+                const alertsDiv = document.getElementById("wsAlerts");
+                alertsDiv.innerHTML = `<div class="alert">
+                    <b>🚨 ALERTA [${payload.device_id}]:</b> ${payload.message} <br>
+                    <small>${payload.timestamp || ''}</small>
+                </div>` + alertsDiv.innerHTML;
+            } 
+            // 2. Si es TELEMETRÍA, actualizamos el valor en vivo (puedes añadir un div id="liveValues" en el HTML)
+            else if(topic.includes("telemetry")) {
+                console.log("Dato en vivo:", payload.device_id, payload.value);
+                // Aquí podrías actualizar un contador o gauge en la web
+            }
+        };
+
+        // Iniciar la conexión WebSocket
+        mqttClient.connect({
+            onSuccess: () => {
+                console.log("Conectado por WebSocket a MQTT");
+                mqttClient.subscribe("+/alerts/+");
+                mqttClient.subscribe("supermarket/+/+/telemetry"); // Suscribirse también a datos vivos
+            }
+        });
+    </script>
+</body>
+</html>
