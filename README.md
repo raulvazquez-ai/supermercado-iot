@@ -1,4 +1,4 @@
-# ENTREGABLE E1: SUPERMERCADO INTELIGENTE (CADENA DE FRÍO)
+# SUPERMERCADO INTELIGENTE (CADENA DE FRÍO)
 
 Este sistema monitoriza las cámaras frigoríficas de un supermercado para asegurar la cadena de frío mediante sensores de temperatura y contacto en las puertas.
 
